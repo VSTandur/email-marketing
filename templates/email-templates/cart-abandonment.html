@@ -1,0 +1,140 @@
+%%[
+/**
+ * Cart Abandonment Email Template
+ * --------------------------------
+ * Dynamically renders up to 3 abandoned cart items per subscriber.
+ * Requires a "CartAbandonment" Data Extension with fields:
+ *   EmailAddress, ProductName, ProductImage, ProductURL,
+ *   ProductPrice, CartTotal, CouponCode, SubscriberFirstName
+ *
+ * Trigger: API Event or Automation triggered when cart is idle > 1 hour
+ */
+
+/* --- Subscriber Lookup --- */
+SET @subscriberEmail  = emailaddr
+SET @firstName        = ProperCase(Lookup("Subscribers", "FirstName", "EmailAddress", @subscriberEmail))
+SET @cartRows         = LookupRows("CartAbandonment", "EmailAddress", @subscriberEmail)
+SET @rowCount         = RowCount(@cartRows)
+SET @cartTotal        = Lookup("CartAbandonment", "CartTotal", "EmailAddress", @subscriberEmail)
+SET @couponCode       = Lookup("CartAbandonment", "CouponCode", "EmailAddress", @subscriberEmail)
+
+/* --- Urgency Timer: minutes since abandonment --- */
+SET @abandonedAt      = Lookup("CartAbandonment", "AbandonedAt", "EmailAddress", @subscriberEmail)
+SET @hoursSince       = DateDiff(@abandonedAt, Now(), "H")
+IF @hoursSince < 2 THEN
+  SET @urgencyMsg = "Your cart is still warm — items are reserved for the next 24 hours."
+ELSEIF @hoursSince < 6 THEN
+  SET @urgencyMsg = "Hurry — these items are in high demand and may sell out soon."
+ELSE
+  SET @urgencyMsg = "⚠️ Your cart is expiring in less than 2 hours. Grab your items now!"
+ENDIF
+]%%
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>You left something behind, %%=v(@firstName)=%%</title>
+  <style>
+    body { margin: 0; padding: 0; background: #f4f4f4; font-family: Arial, sans-serif; }
+    .wrapper { max-width: 600px; margin: 0 auto; background: #ffffff; }
+    .header { background: #1a1a2e; padding: 28px 40px; text-align: center; }
+    .header h1 { color: #e94560; margin: 0; font-size: 26px; }
+    .hero { padding: 32px 40px 16px; text-align: center; }
+    .hero h2 { color: #1a1a2e; font-size: 22px; margin-bottom: 8px; }
+    .hero p { color: #555; font-size: 15px; margin: 0; }
+    .urgency-bar { background: #fff3cd; border-left: 4px solid #ffc107; margin: 16px 40px; padding: 12px 16px; font-size: 14px; color: #856404; border-radius: 4px; }
+    .product-list { padding: 8px 40px 24px; }
+    .product-item { display: table; width: 100%; border-bottom: 1px solid #eee; padding: 16px 0; }
+    .product-img { display: table-cell; width: 90px; vertical-align: middle; }
+    .product-img img { width: 80px; height: 80px; object-fit: cover; border-radius: 6px; }
+    .product-info { display: table-cell; padding-left: 16px; vertical-align: middle; }
+    .product-info .name { font-size: 15px; font-weight: bold; color: #1a1a2e; }
+    .product-info .price { font-size: 14px; color: #e94560; margin-top: 4px; }
+    .cart-total { text-align: right; padding: 12px 40px; font-size: 16px; font-weight: bold; color: #1a1a2e; border-top: 2px solid #eee; }
+    .coupon-block { margin: 0 40px 24px; background: #e8f5e9; border: 1px dashed #4caf50; padding: 14px; text-align: center; border-radius: 6px; }
+    .coupon-block p { margin: 0; font-size: 14px; color: #2e7d32; }
+    .coupon-block .code { font-size: 20px; font-weight: bold; letter-spacing: 3px; color: #1b5e20; margin-top: 6px; }
+    .cta { text-align: center; padding: 24px 40px 32px; }
+    .cta a { background: #e94560; color: #ffffff; padding: 16px 40px; text-decoration: none; border-radius: 30px; font-size: 16px; font-weight: bold; display: inline-block; }
+    .footer { background: #f9f9f9; padding: 20px 40px; text-align: center; font-size: 12px; color: #999; border-top: 1px solid #eee; }
+    .footer a { color: #999; text-decoration: underline; }
+    @media only screen and (max-width: 480px) {
+      .hero, .product-list, .cta, .cart-total, .coupon-block, .urgency-bar { padding-left: 20px !important; padding-right: 20px !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+
+    <!-- Header -->
+    <div class="header">
+      <h1>%%[Output(Concat("<a href='", RedirectTo(CloudPagesURL(1)), "' style='color:#e94560;text-decoration:none;'>", SystemDateToLocalDate(Now()), "</a>"))]%%Your Store</h1>
+    </div>
+
+    <!-- Hero -->
+    <div class="hero">
+      <h2>Hey %%=v(@firstName)=%%, you left something behind! 🛒</h2>
+      <p>Your cart is saved and waiting for you. Complete your order before it's gone.</p>
+    </div>
+
+    <!-- Urgency Bar -->
+    <div class="urgency-bar">%%=v(@urgencyMsg)=%%</div>
+
+    <!-- Product Items (up to 3) -->
+    <div class="product-list">
+      %%[
+      SET @maxItems = IIF(@rowCount > 3, 3, @rowCount)
+      FOR @i = 1 TO @maxItems DO
+        SET @row          = Row(@cartRows, @i)
+        SET @productName  = Field(@row, "ProductName")
+        SET @productImg   = Field(@row, "ProductImage")
+        SET @productURL   = Field(@row, "ProductURL")
+        SET @productPrice = Field(@row, "ProductPrice")
+      ]%%
+      <div class="product-item">
+        <div class="product-img">
+          <a href="%%=v(@productURL)=%%" alias="%%=v(@productName)=%%">
+            <img src="%%=v(@productImg)=%%" alt="%%=v(@productName)=%%" />
+          </a>
+        </div>
+        <div class="product-info">
+          <div class="name"><a href="%%=v(@productURL)=%%" style="color:#1a1a2e;text-decoration:none;">%%=v(@productName)=%%</a></div>
+          <div class="price">$%%=v(@productPrice)=%%</div>
+        </div>
+      </div>
+      %%[ NEXT @i ]%%
+    </div>
+
+    <!-- Cart Total -->
+    <div class="cart-total">
+      Cart Total: <span style="color:#e94560;">$%%=v(@cartTotal)=%%</span>
+    </div>
+
+    <!-- Coupon Block (only if coupon exists) -->
+    %%[ IF NOT EMPTY(@couponCode) THEN ]%%
+    <div class="coupon-block">
+      <p>Use this exclusive code at checkout for <strong>10% off</strong>:</p>
+      <div class="code">%%=v(@couponCode)=%%</div>
+    </div>
+    %%[ ENDIF ]%%
+
+    <!-- CTA -->
+    <div class="cta">
+      <a href="%%=RedirectTo(Lookup("CartAbandonment","CartURL","EmailAddress",@subscriberEmail))=%%" alias="Complete Your Order">
+        Complete My Order →
+      </a>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      <p>You're receiving this because you have an account with us.<br/>
+      <a href="%%subscription_center_url%%">Manage Preferences</a> &nbsp;|&nbsp;
+      <a href="%%unsub_center_url%%">Unsubscribe</a></p>
+      <p>%%Member_Busname%% &bull; %%Member_Addr%% &bull; %%Member_City%%, %%Member_State%% %%Member_PostalCode%%</p>
+      <p>%%jobid%% &bull; %%listid%% &bull; %%subid%%</p>
+    </div>
+
+  </div>
+</body>
+</html>

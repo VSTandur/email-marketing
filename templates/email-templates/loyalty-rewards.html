@@ -1,0 +1,181 @@
+%%[
+/**
+ * Loyalty Rewards / Tier Progress Email Template
+ * ------------------------------------------------
+ * Dynamically renders each subscriber's loyalty tier, points balance,
+ * progress to next tier, and personalized reward offers.
+ *
+ * Required Data Extension: "LoyaltyMembers"
+ * Fields: EmailAddress, FirstName, TierName, CurrentPoints,
+ *         NextTierPoints, TierBenefits, RewardExpiryDate,
+ *         RecommendedProductName, RecommendedProductURL,
+ *         RecommendedProductImage, RecommendedProductPoints
+ */
+
+SET @email             = emailaddr
+SET @row               = LookupRows("LoyaltyMembers", "EmailAddress", @email)
+SET @memberRow         = Row(@row, 1)
+SET @firstName         = ProperCase(Field(@memberRow, "FirstName"))
+SET @tierName          = Field(@memberRow, "TierName")
+SET @currentPts        = Field(@memberRow, "CurrentPoints")
+SET @nextTierPts       = Field(@memberRow, "NextTierPoints")
+SET @tierBenefits      = Field(@memberRow, "TierBenefits")
+SET @expiryDate        = Field(@memberRow, "RewardExpiryDate")
+SET @recProductName    = Field(@memberRow, "RecommendedProductName")
+SET @recProductURL     = Field(@memberRow, "RecommendedProductURL")
+SET @recProductImg     = Field(@memberRow, "RecommendedProductImage")
+SET @recProductPts     = Field(@memberRow, "RecommendedProductPoints")
+
+/* Progress bar calculation (capped at 100%) */
+SET @ptsNeeded         = Subtract(@nextTierPts, @currentPts)
+SET @progressPct       = Multiply(Divide(@currentPts, @nextTierPts), 100)
+IF @progressPct > 100 THEN
+  SET @progressPct     = 100
+ENDIF
+SET @progressPct       = Round(@progressPct, 0)
+
+/* Tier colour theming */
+IF @tierName == "Bronze" THEN
+  SET @tierColor       = "#cd7f32"
+  SET @tierEmoji       = "🥉"
+ELSEIF @tierName == "Silver" THEN
+  SET @tierColor       = "#9e9e9e"
+  SET @tierEmoji       = "🥈"
+ELSEIF @tierName == "Gold" THEN
+  SET @tierColor       = "#ffc107"
+  SET @tierEmoji       = "🥇"
+ELSEIF @tierName == "Platinum" THEN
+  SET @tierColor       = "#7c4dff"
+  SET @tierEmoji       = "💎"
+ELSE
+  SET @tierColor       = "#1a1a2e"
+  SET @tierEmoji       = "⭐"
+ENDIF
+]%%
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Your %%=v(@tierName)=%% Rewards Update, %%=v(@firstName)=%%</title>
+  <style>
+    body { margin: 0; padding: 0; background: #f0f0f5; font-family: 'Helvetica Neue', Arial, sans-serif; }
+    .wrapper { max-width: 600px; margin: 0 auto; background: #ffffff; }
+    .header { background: %%=v(@tierColor)=%%; padding: 32px 40px; text-align: center; }
+    .header h1 { color: #ffffff; margin: 0; font-size: 28px; letter-spacing: 1px; }
+    .header p { color: rgba(255,255,255,0.85); margin: 8px 0 0; font-size: 14px; }
+    .tier-badge { text-align: center; padding: 28px 40px 8px; }
+    .tier-badge .badge { display: inline-block; background: %%=v(@tierColor)=%%; color: #fff; padding: 10px 28px; border-radius: 30px; font-size: 18px; font-weight: bold; }
+    .points-block { text-align: center; padding: 8px 40px 24px; }
+    .points-block .pts { font-size: 48px; font-weight: bold; color: %%=v(@tierColor)=%%; line-height: 1; }
+    .points-block .pts-label { font-size: 14px; color: #777; margin-top: 4px; }
+    /* Progress Bar */
+    .progress-section { padding: 8px 40px 28px; }
+    .progress-section .label { display: flex; justify-content: space-between; font-size: 13px; color: #555; margin-bottom: 8px; }
+    .progress-outer { background: #e0e0e0; border-radius: 12px; height: 16px; overflow: hidden; }
+    .progress-inner { background: %%=v(@tierColor)=%%; height: 16px; border-radius: 12px; width: %%=v(@progressPct)=%%; transition: width 1s; }
+    .progress-note { font-size: 13px; color: #777; margin-top: 8px; text-align: center; }
+    /* Benefits */
+    .benefits { background: #fafafa; margin: 0 40px 24px; padding: 20px; border-radius: 8px; border-left: 4px solid %%=v(@tierColor)=%%; }
+    .benefits h3 { margin: 0 0 10px; font-size: 15px; color: #1a1a2e; }
+    .benefits p { margin: 0; font-size: 14px; color: #555; line-height: 1.6; }
+    /* Recommendation */
+    .rec-section { padding: 8px 40px 28px; }
+    .rec-section h3 { font-size: 16px; color: #1a1a2e; margin-bottom: 16px; }
+    .rec-card { display: table; width: 100%; border: 1px solid #eee; border-radius: 8px; overflow: hidden; }
+    .rec-card .rec-img { display: table-cell; width: 130px; vertical-align: middle; }
+    .rec-card .rec-img img { width: 130px; height: 130px; object-fit: cover; display: block; }
+    .rec-card .rec-info { display: table-cell; padding: 16px; vertical-align: middle; }
+    .rec-card .rec-name { font-size: 15px; font-weight: bold; color: #1a1a2e; margin-bottom: 6px; }
+    .rec-card .rec-pts { font-size: 14px; color: %%=v(@tierColor)=%%; font-weight: bold; }
+    .rec-card .rec-cta a { display: inline-block; margin-top: 12px; background: %%=v(@tierColor)=%%; color: #fff; padding: 10px 22px; border-radius: 20px; font-size: 13px; text-decoration: none; font-weight: bold; }
+    /* Expiry */
+    .expiry { text-align: center; background: #fff8e1; margin: 0 40px 28px; padding: 14px; border-radius: 6px; border: 1px solid #ffe082; font-size: 14px; color: #795548; }
+    /* Footer */
+    .footer { background: #f9f9f9; padding: 20px 40px; text-align: center; font-size: 12px; color: #999; border-top: 1px solid #eee; }
+    .footer a { color: #999; text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+
+    <!-- Header -->
+    <div class="header">
+      <h1>%%=v(@tierEmoji)=%% %%=v(@firstName)=%%, Your Rewards Update</h1>
+      <p>Here's where you stand in our loyalty program</p>
+    </div>
+
+    <!-- Tier Badge -->
+    <div class="tier-badge">
+      <span class="badge">%%=v(@tierEmoji)=%% %%=v(@tierName)=%% Member</span>
+    </div>
+
+    <!-- Points Balance -->
+    <div class="points-block">
+      <div class="pts">%%=v(@currentPts)=%%</div>
+      <div class="pts-label">Total Points Earned</div>
+    </div>
+
+    <!-- Progress Bar to Next Tier -->
+    <div class="progress-section">
+      <div class="label">
+        <span>%%=v(@tierName)=%%</span>
+        <span>Next Tier: %%=v(@nextTierPts)=%% pts</span>
+      </div>
+      <div class="progress-outer">
+        <div class="progress-inner" style="width:%%=v(@progressPct)=%%%%;"></div>
+      </div>
+      <div class="progress-note">
+        %%[ IF @ptsNeeded > 0 THEN ]%%
+          You need <strong>%%=v(@ptsNeeded)=%%</strong> more points to reach the next tier!
+        %%[ ELSE ]%%
+          🎉 Congratulations! You've reached the top tier!
+        %%[ ENDIF ]%%
+      </div>
+    </div>
+
+    <!-- Tier Benefits -->
+    <div class="benefits">
+      <h3>Your %%=v(@tierName)=%% Member Benefits</h3>
+      <p>%%=v(@tierBenefits)=%%</p>
+    </div>
+
+    <!-- Personalized Product Recommendation -->
+    <div class="rec-section">
+      <h3>🎁 Earn More Points With This Pick For You</h3>
+      <div class="rec-card">
+        <div class="rec-img">
+          <a href="%%=v(@recProductURL)=%%">
+            <img src="%%=v(@recProductImg)=%%" alt="%%=v(@recProductName)=%%" />
+          </a>
+        </div>
+        <div class="rec-info">
+          <div class="rec-name">%%=v(@recProductName)=%%</div>
+          <div class="rec-pts">+%%=v(@recProductPts)=%% points on purchase</div>
+          <div class="rec-cta">
+            <a href="%%=RedirectTo(v(@recProductURL))=%%" alias="Shop %%=v(@recProductName)=%%">
+              Shop Now
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Reward Expiry Warning -->
+    %%[ IF NOT EMPTY(@expiryDate) THEN ]%%
+    <div class="expiry">
+      ⚠️ Your current reward offer expires on <strong>%%=v(@expiryDate)=%%</strong>. Don't let it go to waste!
+    </div>
+    %%[ ENDIF ]%%
+
+    <!-- Footer -->
+    <div class="footer">
+      <p>You're receiving this as a valued loyalty member.<br/>
+      <a href="%%subscription_center_url%%">Manage Preferences</a> &nbsp;|&nbsp;
+      <a href="%%unsub_center_url%%">Unsubscribe</a></p>
+      <p>%%Member_Busname%% &bull; %%Member_Addr%% &bull; %%Member_City%%, %%Member_State%% %%Member_PostalCode%%</p>
+    </div>
+
+  </div>
+</body>
+</html>
