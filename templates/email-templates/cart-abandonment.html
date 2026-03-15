@@ -65,11 +65,15 @@ ENDIF
   </style>
 </head>
 <body>
+  <!-- Preheader text (hidden inbox preview) -->
+  <span style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;color:#ffffff;line-height:1px;">
+    %%=v(@firstName)=%%, your cart is waiting! %%=v(@urgencyMsg)=%% &zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;
+  </span>
   <div class="wrapper">
 
     <!-- Header -->
     <div class="header">
-      <h1>%%[Output(Concat("<a href='", RedirectTo(CloudPagesURL(1)), "' style='color:#e94560;text-decoration:none;'>", SystemDateToLocalDate(Now()), "</a>"))]%%Your Store</h1>
+      <h1><a href="%%=RedirectTo(CloudPagesURL(1))=%%" style="color:#e94560;text-decoration:none;">Your Store</a></h1>
     </div>
 
     <!-- Hero -->

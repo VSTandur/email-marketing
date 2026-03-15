@@ -268,8 +268,11 @@ FROM
 LEFT JOIN [_Sent]  s ON j.JobID = s.JobID
 LEFT JOIN [_Click] c ON j.JobID = c.JobID AND c.IsUnique = 1
 -- Match clickers to purchases within 7-day attribution window
+-- Note: _Click.SubscriberKey (not SubscriberID) is used to look up the subscriber's email
+-- in AllSubscribers_DE, then joined to PurchaseHistory_DE on EmailAddress.
+LEFT JOIN [AllSubscribers_DE] sub_email ON c.SubscriberKey = sub_email.SubscriberKey
 LEFT JOIN [PurchaseHistory_DE] p
-    ON c.SubscriberID = p.CustomerEmail
+    ON sub_email.EmailAddress = p.CustomerEmail
     AND p.OrderDate BETWEEN c.EventDate AND DATEADD(DAY, 7, c.EventDate)
 WHERE
     j.SendDate >= DATEADD(DAY, -90, GETDATE())

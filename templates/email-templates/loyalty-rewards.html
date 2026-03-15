@@ -94,9 +94,20 @@ ENDIF
     /* Footer */
     .footer { background: #f9f9f9; padding: 20px 40px; text-align: center; font-size: 12px; color: #999; border-top: 1px solid #eee; }
     .footer a { color: #999; text-decoration: underline; }
+    @media only screen and (max-width: 480px) {
+      .wrapper { width: 100% !important; }
+      .header, .tier-badge, .points-block, .progress-section,
+      .benefits, .rec-section, .expiry, .footer { padding-left: 16px !important; padding-right: 16px !important; }
+      .points-block .pts { font-size: 36px; }
+      .rec-card .rec-img, .rec-card .rec-img img { width: 80px !important; height: 80px !important; }
+    }
   </style>
 </head>
 <body>
+  <!-- Preheader text (hidden inbox preview) -->
+  <span style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;color:#ffffff;line-height:1px;">
+    %%=v(@tierEmoji)=%% %%=v(@firstName)=%%, you have %%=v(@currentPts)=%% points — see your rewards update inside. &zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;
+  </span>
   <div class="wrapper">
 
     <!-- Header -->

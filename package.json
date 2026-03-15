@@ -1,0 +1,33 @@
+{
+  "name": "sfmc-email-marketing-qc",
+  "version": "1.0.0",
+  "description": "Automated Build and QC toolkit for SFMC Journey Builder and email content design",
+  "main": "scripts/qc/email-qc.js",
+  "scripts": {
+    "qc:email": "node scripts/qc/email-qc.js",
+    "qc:journey": "node scripts/qc/journey-qc.js",
+    "qc:presend": "node scripts/qc/pre-send-checklist.js",
+    "qc:all": "node scripts/qc/email-qc.js && node scripts/qc/journey-qc.js && node scripts/qc/pre-send-checklist.js",
+    "test": "node --test scripts/qc/tests/"
+  },
+  "keywords": [
+    "sfmc",
+    "salesforce-marketing-cloud",
+    "email-marketing",
+    "journey-builder",
+    "qc",
+    "automation",
+    "ampscript"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "ajv": "^8.17.1",
+    "glob": "^10.4.5"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

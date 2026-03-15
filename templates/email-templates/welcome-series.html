@@ -79,9 +79,20 @@ SET @appIcon        = IIF(@appDone == "Y", @iconDone, @iconPending)
     .social img { width: 32px; height: 32px; }
     .footer { background: #f9f9f9; padding: 20px 40px; text-align: center; font-size: 12px; color: #bbb; border-top: 1px solid #eee; }
     .footer a { color: #bbb; text-decoration: underline; }
+    @media only screen and (max-width: 480px) {
+      .wrapper { width: 100% !important; }
+      .hero, .welcome-offer, .checklist, .cta, .social, .footer { padding-left: 16px !important; padding-right: 16px !important; }
+      .hero h2 { font-size: 20px !important; }
+      .welcome-offer .wcode { font-size: 22px !important; }
+      .cta a { padding: 14px 28px !important; font-size: 15px !important; }
+    }
   </style>
 </head>
 <body>
+  <!-- Preheader text (hidden inbox preview) -->
+  <span style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;color:#ffffff;line-height:1px;">
+    Your 15% welcome offer + onboarding checklist — get started with %%=v(@categoryLine)=%% today! &zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;
+  </span>
   <div class="wrapper">
 
     <!-- Header -->
@@ -149,13 +160,13 @@ SET @appIcon        = IIF(@appDone == "Y", @iconDone, @iconPending)
     <!-- Social Proof -->
     <div class="social">
       <p>Follow us for daily inspiration</p>
-      <a href="https://instagram.com/yourbrand" alias="Instagram">
+      <a href="%%=RedirectTo("https://instagram.com/yourbrand")=%%" alias="Instagram">
         <img src="https://cdn.yourstore.com/emails/icons/instagram.png" alt="Instagram" />
       </a>
-      <a href="https://facebook.com/yourbrand" alias="Facebook">
+      <a href="%%=RedirectTo("https://facebook.com/yourbrand")=%%" alias="Facebook">
         <img src="https://cdn.yourstore.com/emails/icons/facebook.png" alt="Facebook" />
       </a>
-      <a href="https://twitter.com/yourbrand" alias="Twitter">
+      <a href="%%=RedirectTo("https://twitter.com/yourbrand")=%%" alias="Twitter">
         <img src="https://cdn.yourstore.com/emails/icons/twitter.png" alt="Twitter" />
       </a>
     </div>
