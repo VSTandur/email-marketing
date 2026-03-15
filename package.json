@@ -8,7 +8,7 @@
     "qc:journey": "node scripts/qc/journey-qc.js",
     "qc:presend": "node scripts/qc/pre-send-checklist.js",
     "qc:all": "node scripts/qc/email-qc.js && node scripts/qc/journey-qc.js && node scripts/qc/pre-send-checklist.js",
-    "test": "node --test scripts/qc/tests/"
+    "test": "node --test \"scripts/qc/tests/*.test.js\""
   },
   "keywords": [
     "sfmc",

@@ -4,23 +4,58 @@ A comprehensive, production-ready resource library for Salesforce Marketing Clou
 
 ---
 
+## ⚙️ Automated Build and QC
+
+This repository ships with a fully automated **Build and QC system** for both Journey Builder configurations and email content design. Every push or PR is automatically validated by a 6-job CI/CD pipeline.
+
+**→ See [docs/capabilities.md](docs/capabilities.md) for a complete capabilities reference.**
+
+### Quick start
+
+```bash
+npm install
+
+npm run qc:email      # Check all HTML email templates (16 rules)
+npm run qc:journey    # Check all journey configs (12 rules + JSON Schema)
+npm run qc:presend    # Full pre-send deployment gate (8 sections)
+npm run qc:all        # Run everything
+npm test              # Run 84 unit tests for the QC engine
+```
+
+### What gets checked
+
+| Area | Checks |
+|------|--------|
+| **Email content** | CAN-SPAM compliance, AMPscript syntax, accessibility, mobile responsiveness, spam trigger words, link tracking, no JavaScript, preheader |
+| **Journey Builder** | Email asset linkage, wait durations, split branch integrity, random split percentages, orphaned activities, entry mode, goal and exit criteria |
+| **Pre-send gate** | Combines both + subject line length, SQL file presence |
+| **CI pipeline** | Runs on every push/PR; blocks merge on any error; uploads JSON reports as 30-day artifacts |
+
+---
+
 ## 📂 Repository Structure
 
 ```
+├── .github/workflows/
+│   └── qc-pipeline.yml         # 6-job automated CI/CD QC pipeline
 ├── templates/
 │   ├── email-templates/        # Ready-to-deploy HTML email templates with AMPscript
 │   └── ampscript/              # Reusable AMPscript snippets & functions
+├── journeys/
+│   ├── examples/               # Journey JSON configs (export from SFMC API)
+│   └── schemas/                # JSON Schema for journey validation
 ├── sql/
 │   ├── segmentation/           # Audience segmentation queries for Data Extensions
 │   └── analytics/              # Reporting & performance analytics queries
 ├── scripts/
+│   ├── qc/                     # QC engine (email-qc.js, journey-qc.js, pre-send-checklist.js)
+│   │   ├── rules/              # Rule functions (email-rules.js, journey-rules.js)
+│   │   ├── reporters/          # Console + JSON reporters
+│   │   └── tests/              # 84 unit tests for QC rules
 │   └── ssjs/                   # Server-Side JavaScript (SSJS) utilities
 └── docs/
-    ├── journey-builder.md      # Journey Builder strategy playbook
-    ├── personalization.md      # Advanced personalization techniques
-    ├── ab-testing.md           # A/B & multivariate testing framework
-    ├── deliverability.md       # Deliverability optimization guide
-    └── automation.md           # Automation Studio workflow guide
+    ├── capabilities.md         # Build and QC capabilities reference
+    └── build-and-qc.md         # End-to-end Build and QC process guide
 ```
 
 ---

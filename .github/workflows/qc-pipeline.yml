@@ -26,11 +26,36 @@ on:
 
 jobs:
   # ============================================================
+  # JOB 0: QC Rule Unit Tests
+  # ============================================================
+  qc-unit-tests:
+    name: QC Rule Unit Tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install QC dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Run QC rule unit tests
+        run: npm test
+
+  # ============================================================
   # JOB 1: Email Content QC
   # ============================================================
   email-qc:
     name: Email Content QC
     runs-on: ubuntu-latest
+    needs: [qc-unit-tests]
     permissions:
       contents: read
     steps:
@@ -232,24 +257,26 @@ jobs:
   qc-status:
     name: QC Gate — All Checks
     runs-on: ubuntu-latest
-    needs: [email-qc, journey-qc, pre-send-checklist, sql-lint, journey-schema]
+    needs: [qc-unit-tests, email-qc, journey-qc, pre-send-checklist, sql-lint, journey-schema]
     if: always()
     permissions: {}
     steps:
       - name: Evaluate all QC results
         run: |
           echo "Job results:"
+          echo "  qc-unit-tests:      ${{ needs.qc-unit-tests.result }}"
           echo "  email-qc:           ${{ needs.email-qc.result }}"
           echo "  journey-qc:         ${{ needs.journey-qc.result }}"
           echo "  pre-send-checklist: ${{ needs.pre-send-checklist.result }}"
           echo "  sql-lint:           ${{ needs.sql-lint.result }}"
           echo "  journey-schema:     ${{ needs.journey-schema.result }}"
 
-          if [ "${{ needs.email-qc.result }}"           = "failure" ] || \
-             [ "${{ needs.journey-qc.result }}"         = "failure" ] || \
-             [ "${{ needs.pre-send-checklist.result }}" = "failure" ] || \
-             [ "${{ needs.sql-lint.result }}"           = "failure" ] || \
-             [ "${{ needs.journey-schema.result }}"     = "failure" ]; then
+          if [ "${{ needs.qc-unit-tests.result }}"          = "failure" ] || \
+             [ "${{ needs.email-qc.result }}"               = "failure" ] || \
+             [ "${{ needs.journey-qc.result }}"             = "failure" ] || \
+             [ "${{ needs.pre-send-checklist.result }}"     = "failure" ] || \
+             [ "${{ needs.sql-lint.result }}"               = "failure" ] || \
+             [ "${{ needs.journey-schema.result }}"         = "failure" ]; then
             echo ""
             echo "✖ QC GATE FAILED — one or more checks did not pass."
             echo "  Review the job logs and uploaded QC report artifacts above."
