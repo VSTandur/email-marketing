@@ -1,0 +1,243 @@
+{
+  "name": "Cart Abandonment Recovery Journey",
+  "key": "cart-abandonment-v2",
+  "description": "3-email cart abandonment sequence. Triggers via API Event when a cart has been idle for more than 1 hour. Escalates urgency and offer value at each step, then updates suppression DE on conversion or exit.",
+  "status": "Draft",
+  "entryMode": "MultipleEntrances",
+  "definitionType": "Multistep",
+  "tags": ["cart-abandonment", "revenue-recovery", "transactional", "q1-2025"],
+  "category": {
+    "id": 1002,
+    "name": "Revenue Recovery"
+  },
+  "triggers": [
+    {
+      "key": "cart-abandon-api-trigger",
+      "type": "APIEvent",
+      "name": "Cart Abandoned API Event",
+      "description": "Fired by the e-commerce platform via SFMC REST API when a cart is idle > 60 minutes.",
+      "metaData": {
+        "entryActivityKey": "email-cart-hour1",
+        "eventDefinitionKey": "APIEvent-CartAbandoned-v2"
+      }
+    }
+  ],
+  "activities": [
+    {
+      "key": "email-cart-hour1",
+      "name": "Send Cart Recovery Email – Hour 1",
+      "type": "EMAILV2",
+      "description": "First recovery email. Warm reminder with cart contents rendered via AMPscript. No discount yet.",
+      "outcomes": [
+        { "key": "outcome-after-cart1", "next": "wait-3-hours", "label": "Sent" }
+      ],
+      "configurationArguments": {
+        "triggeredSend": {
+          "emailId": "EMAIL_CART_ABANDONMENT_ID",
+          "emailSubject": "%%=v(@firstName)=%%, you left something in your cart 🛒",
+          "preHeaderText": "Your items are reserved — complete your order before they sell out",
+          "fromName": "Your Brand",
+          "fromEmail": "shop@yourbrand.com",
+          "suppressionListIds": ["SUPPRESSION_DE_ID"]
+        }
+      }
+    },
+    {
+      "key": "wait-3-hours",
+      "name": "Wait 3 Hours",
+      "type": "WAIT",
+      "description": "Wait 3 hours after first email before checking for conversion.",
+      "outcomes": [
+        { "key": "outcome-after-wait1", "next": "split-purchased-after-email1", "label": "Wait Complete" }
+      ],
+      "configurationArguments": {
+        "waitDuration": 3,
+        "waitUnit": "HOURS"
+      }
+    },
+    {
+      "key": "split-purchased-after-email1",
+      "name": "Decision Split – Purchased After Email 1?",
+      "type": "MULTICRITERIADECISION",
+      "description": "If subscriber has purchased, exit the journey. Otherwise continue to email 2.",
+      "outcomes": [
+        { "key": "outcome-purchased-1", "next": "update-converted-cart1",    "label": "Purchased" },
+        { "key": "outcome-not-purchased-1", "next": "email-cart-day1",       "label": "Not Purchased" }
+      ],
+      "configurationArguments": {
+        "criteria": [
+          {
+            "key": "criteria-purchased",
+            "label": "Purchased",
+            "conditions": [
+              { "field": "HasPurchased", "operator": "equals", "value": "Y" }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "key": "email-cart-day1",
+      "name": "Send Cart Recovery Email 2 – Day 1 (10% Off)",
+      "type": "EMAILV2",
+      "description": "Second recovery email sent ~24 hours after abandonment. Introduces a 10% off coupon.",
+      "outcomes": [
+        { "key": "outcome-after-cart2", "next": "wait-20-hours", "label": "Sent" }
+      ],
+      "configurationArguments": {
+        "triggeredSend": {
+          "emailId": "EMAIL_CART_ABANDONMENT_ID",
+          "emailSubject": "%%=v(@firstName)=%%, here's 10% off to complete your order 🎁",
+          "preHeaderText": "Your exclusive cart discount — valid for 24 hours only",
+          "fromName": "Your Brand",
+          "fromEmail": "shop@yourbrand.com",
+          "suppressionListIds": ["SUPPRESSION_DE_ID"]
+        }
+      }
+    },
+    {
+      "key": "wait-20-hours",
+      "name": "Wait 20 Hours",
+      "type": "WAIT",
+      "description": "Wait 20 hours before final cart recovery email.",
+      "outcomes": [
+        { "key": "outcome-after-wait2", "next": "split-purchased-after-email2", "label": "Wait Complete" }
+      ],
+      "configurationArguments": {
+        "waitDuration": 20,
+        "waitUnit": "HOURS"
+      }
+    },
+    {
+      "key": "split-purchased-after-email2",
+      "name": "Decision Split – Purchased After Email 2?",
+      "type": "MULTICRITERIADECISION",
+      "description": "Exit if purchased, otherwise send final recovery email with higher offer.",
+      "outcomes": [
+        { "key": "outcome-purchased-2", "next": "update-converted-cart2",    "label": "Purchased" },
+        { "key": "outcome-not-purchased-2", "next": "email-cart-day2",       "label": "Not Purchased" }
+      ],
+      "configurationArguments": {
+        "criteria": [
+          {
+            "key": "criteria-purchased-2",
+            "label": "Purchased",
+            "conditions": [
+              { "field": "HasPurchased", "operator": "equals", "value": "Y" }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "key": "email-cart-day2",
+      "name": "Send Cart Recovery Email 3 – Day 2 (Final Urgency)",
+      "type": "EMAILV2",
+      "description": "Final recovery email. Maximum urgency with cart expiry warning and escalated offer.",
+      "outcomes": [
+        { "key": "outcome-after-cart3", "next": "update-cart-expired", "label": "Sent" }
+      ],
+      "configurationArguments": {
+        "triggeredSend": {
+          "emailId": "EMAIL_CART_ABANDONMENT_ID",
+          "emailSubject": "⚠️ %%=v(@firstName)=%%, your cart expires in 2 hours",
+          "preHeaderText": "Last chance to grab your items + free shipping added",
+          "fromName": "Your Brand",
+          "fromEmail": "shop@yourbrand.com",
+          "suppressionListIds": ["SUPPRESSION_DE_ID"]
+        }
+      }
+    },
+    {
+      "key": "update-converted-cart1",
+      "name": "Update Contact – Converted After Email 1",
+      "type": "DATAUPDATE",
+      "description": "Records conversion attribution to email 1.",
+      "outcomes": [
+        { "key": "outcome-exit-converted1", "next": "exit-converted", "label": "Updated" }
+      ],
+      "configurationArguments": {
+        "dataExtensionId": "DE_CART_ABANDONMENT_ID",
+        "operations": [
+          { "field": "ConversionEmail", "value": "1", "type": "UpdateField" },
+          { "field": "CartStatus", "value": "Converted", "type": "UpdateField" }
+        ]
+      }
+    },
+    {
+      "key": "update-converted-cart2",
+      "name": "Update Contact – Converted After Email 2",
+      "type": "DATAUPDATE",
+      "description": "Records conversion attribution to email 2.",
+      "outcomes": [
+        { "key": "outcome-exit-converted2", "next": "exit-converted", "label": "Updated" }
+      ],
+      "configurationArguments": {
+        "dataExtensionId": "DE_CART_ABANDONMENT_ID",
+        "operations": [
+          { "field": "ConversionEmail", "value": "2", "type": "UpdateField" },
+          { "field": "CartStatus", "value": "Converted", "type": "UpdateField" }
+        ]
+      }
+    },
+    {
+      "key": "update-cart-expired",
+      "name": "Update Contact – Cart Expired (No Conversion)",
+      "type": "DATAUPDATE",
+      "description": "Marks cart as expired after all 3 emails with no purchase.",
+      "outcomes": [
+        { "key": "outcome-exit-expired", "next": "exit-no-conversion", "label": "Updated" }
+      ],
+      "configurationArguments": {
+        "dataExtensionId": "DE_CART_ABANDONMENT_ID",
+        "operations": [
+          { "field": "CartStatus", "value": "Expired", "type": "UpdateField" }
+        ]
+      }
+    },
+    {
+      "key": "exit-converted",
+      "name": "Exit – Converted",
+      "type": "EXIT",
+      "description": "Contact purchased — exit journey and suppress from further cart emails."
+    },
+    {
+      "key": "exit-no-conversion",
+      "name": "Exit – No Conversion",
+      "type": "EXIT",
+      "description": "All 3 cart recovery emails sent with no purchase. Contact exits to re-engagement journey audience."
+    }
+  ],
+  "goals": [
+    {
+      "key": "goal-cart-purchase",
+      "name": "Cart Purchase Completed",
+      "type": "ContactMeetsCriteria",
+      "description": "Primary goal: subscriber completes the purchase at any point during the journey.",
+      "metaData": {
+        "criteriaDescription": "CartStatus = Converted"
+      }
+    }
+  ],
+  "exits": [
+    {
+      "key": "exit-unsubscribed",
+      "name": "Exit if Unsubscribed",
+      "type": "ContactMeetsCriteria",
+      "metaData": {
+        "criteriaDescription": "Subscriber status = Unsubscribed OR status = Bounced"
+      }
+    }
+  ],
+  "notifiers": [
+    {
+      "key": "notifier-cart-error",
+      "name": "Cart Journey Error Alert",
+      "type": "EmailNotifier",
+      "metaData": {
+        "recipients": ["email-team@yourbrand.com"],
+        "notifyOn": ["JourneyError", "ActivityError"]
+      }
+    }
+  ]
+}

@@ -1,0 +1,184 @@
+%%[
+/**
+ * Welcome Series Email — Email #1 of 5
+ * --------------------------------------
+ * Sent immediately upon new subscriber opt-in.
+ * Renders the subscriber's first name, preferred category
+ * (captured at signup), and a dynamic onboarding checklist
+ * that shows completion status.
+ *
+ * Required Data Extension: "WelcomeSubscribers"
+ * Fields: EmailAddress, FirstName, PreferredCategory,
+ *         HasCompletedProfile (Y/N), HasMadeFirstPurchase (Y/N),
+ *         HasDownloadedApp (Y/N), WelcomeOfferCode
+ */
+
+SET @email          = emailaddr
+SET @row            = LookupRows("WelcomeSubscribers","EmailAddress",@email)
+SET @r              = Row(@row,1)
+SET @firstName      = ProperCase(Field(@r,"FirstName"))
+SET @category       = Field(@r,"PreferredCategory")
+SET @profileDone    = Field(@r,"HasCompletedProfile")
+SET @purchaseDone   = Field(@r,"HasMadeFirstPurchase")
+SET @appDone        = Field(@r,"HasDownloadedApp")
+SET @offerCode      = Field(@r,"WelcomeOfferCode")
+
+/* Category-specific hero image and headline */
+IF @category == "Fashion" THEN
+  SET @heroImg      = "https://cdn.yourstore.com/emails/welcome/fashion-hero.jpg"
+  SET @categoryLine = "curated fashion picks"
+ELSEIF @category == "Tech" THEN
+  SET @heroImg      = "https://cdn.yourstore.com/emails/welcome/tech-hero.jpg"
+  SET @categoryLine = "the latest in technology"
+ELSEIF @category == "Home" THEN
+  SET @heroImg      = "https://cdn.yourstore.com/emails/welcome/home-hero.jpg"
+  SET @categoryLine = "beautiful home & living ideas"
+ELSE
+  SET @heroImg      = "https://cdn.yourstore.com/emails/welcome/default-hero.jpg"
+  SET @categoryLine = "exclusive deals and recommendations"
+ENDIF
+
+/* Checklist icons */
+SET @iconDone       = "✅"
+SET @iconPending    = "⬜"
+SET @profileIcon    = IIF(@profileDone == "Y", @iconDone, @iconPending)
+SET @purchaseIcon   = IIF(@purchaseDone == "Y", @iconDone, @iconPending)
+SET @appIcon        = IIF(@appDone == "Y", @iconDone, @iconPending)
+]%%
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Welcome to Your Brand, %%=v(@firstName)=%%! 🎉</title>
+  <style>
+    body { margin: 0; padding: 0; background: #f0f4ff; font-family: 'Helvetica Neue', Arial, sans-serif; }
+    .wrapper { max-width: 600px; margin: 0 auto; background: #ffffff; }
+    .header { background: #4a6cf7; padding: 28px 40px; text-align: center; }
+    .header h1 { color: #ffffff; margin: 0; font-size: 22px; letter-spacing: 1.5px; }
+    .hero-img img { width: 100%; display: block; }
+    .hero { padding: 32px 40px 8px; text-align: center; }
+    .hero h2 { font-size: 26px; color: #1a1a2e; margin: 0 0 12px; }
+    .hero p { font-size: 16px; color: #555; line-height: 1.6; margin: 0; }
+    .welcome-offer { margin: 24px 40px; background: #eef2ff; border: 2px solid #4a6cf7; border-radius: 10px; padding: 24px; text-align: center; }
+    .welcome-offer .wlabel { font-size: 13px; color: #4a6cf7; font-weight: bold; letter-spacing: 1px; text-transform: uppercase; }
+    .welcome-offer .wcode { font-size: 28px; font-weight: bold; color: #1a1a2e; letter-spacing: 4px; margin: 8px 0; }
+    .welcome-offer .wdesc { font-size: 14px; color: #666; }
+    .checklist { margin: 8px 40px 28px; }
+    .checklist h3 { font-size: 17px; color: #1a1a2e; margin-bottom: 16px; }
+    .checklist-item { display: flex; align-items: center; padding: 12px 0; border-bottom: 1px solid #f0f0f0; }
+    .checklist-item:last-child { border-bottom: none; }
+    .checklist-item .icon { font-size: 20px; width: 32px; flex-shrink: 0; }
+    .checklist-item .text { font-size: 15px; color: #333; flex-grow: 1; padding-left: 8px; }
+    .checklist-item .action a { font-size: 13px; color: #4a6cf7; text-decoration: none; font-weight: bold; white-space: nowrap; }
+    .cta { text-align: center; padding: 16px 40px 32px; }
+    .cta a { background: #4a6cf7; color: #fff; padding: 16px 48px; text-decoration: none; border-radius: 6px; font-size: 16px; font-weight: bold; display: inline-block; }
+    .social { text-align: center; padding: 16px 40px 28px; }
+    .social p { font-size: 14px; color: #999; margin-bottom: 12px; }
+    .social a { display: inline-block; margin: 0 6px; }
+    .social img { width: 32px; height: 32px; }
+    .footer { background: #f9f9f9; padding: 20px 40px; text-align: center; font-size: 12px; color: #bbb; border-top: 1px solid #eee; }
+    .footer a { color: #bbb; text-decoration: underline; }
+    @media only screen and (max-width: 480px) {
+      .wrapper { width: 100% !important; }
+      .hero, .welcome-offer, .checklist, .cta, .social, .footer { padding-left: 16px !important; padding-right: 16px !important; }
+      .hero h2 { font-size: 20px !important; }
+      .welcome-offer .wcode { font-size: 22px !important; }
+      .cta a { padding: 14px 28px !important; font-size: 15px !important; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Preheader text (hidden inbox preview) -->
+  <span style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;color:#ffffff;line-height:1px;">
+    Your 15% welcome offer + onboarding checklist — get started with %%=v(@categoryLine)=%% today! &zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;
+  </span>
+  <div class="wrapper">
+
+    <!-- Header -->
+    <div class="header">
+      <h1>YOUR BRAND</h1>
+    </div>
+
+    <!-- Hero Image (category-specific) -->
+    <div class="hero-img">
+      <img src="%%=v(@heroImg)=%%" alt="Welcome to Your Brand" />
+    </div>
+
+    <!-- Hero Text -->
+    <div class="hero">
+      <h2>Welcome aboard, %%=v(@firstName)=%% 🎉</h2>
+      <p>
+        You're now part of our community and you'll be the first to discover
+        %%=v(@categoryLine)=%%,<br/>exclusive offers, and so much more.
+      </p>
+    </div>
+
+    <!-- Welcome Offer -->
+    <div class="welcome-offer">
+      <div class="wlabel">Your Welcome Gift</div>
+      <div class="wcode">%%=v(@offerCode)=%%</div>
+      <div class="wdesc">15% off your first order · Expires in 30 days</div>
+    </div>
+
+    <!-- Onboarding Checklist -->
+    <div class="checklist">
+      <h3>🗒️ Get the Most From Your Account</h3>
+
+      <div class="checklist-item">
+        <div class="icon">%%=v(@profileIcon)=%%</div>
+        <div class="text">Complete your profile for personalized recommendations</div>
+        %%[ IF @profileDone != "Y" THEN ]%%
+        <div class="action"><a href="%%=RedirectTo("https://www.yourstore.com/profile")=%%" alias="Complete Profile">Complete →</a></div>
+        %%[ ENDIF ]%%
+      </div>
+
+      <div class="checklist-item">
+        <div class="icon">%%=v(@purchaseIcon)=%%</div>
+        <div class="text">Make your first purchase and earn 2× points</div>
+        %%[ IF @purchaseDone != "Y" THEN ]%%
+        <div class="action"><a href="%%=RedirectTo("https://www.yourstore.com/shop")=%%" alias="Shop Now">Shop →</a></div>
+        %%[ ENDIF ]%%
+      </div>
+
+      <div class="checklist-item">
+        <div class="icon">%%=v(@appIcon)=%%</div>
+        <div class="text">Download the app for exclusive mobile-only deals</div>
+        %%[ IF @appDone != "Y" THEN ]%%
+        <div class="action"><a href="%%=RedirectTo("https://www.yourstore.com/app")=%%" alias="Get the App">Get App →</a></div>
+        %%[ ENDIF ]%%
+      </div>
+    </div>
+
+    <!-- CTA -->
+    <div class="cta">
+      <a href="%%=RedirectTo("https://www.yourstore.com/?utm_source=email&utm_medium=welcome&utm_campaign=welcome_series&utm_content=email1")=%%" alias="Start Shopping">
+        Start Exploring →
+      </a>
+    </div>
+
+    <!-- Social Proof -->
+    <div class="social">
+      <p>Follow us for daily inspiration</p>
+      <a href="%%=RedirectTo("https://instagram.com/yourbrand")=%%" alias="Instagram">
+        <img src="https://cdn.yourstore.com/emails/icons/instagram.png" alt="Instagram" />
+      </a>
+      <a href="%%=RedirectTo("https://facebook.com/yourbrand")=%%" alias="Facebook">
+        <img src="https://cdn.yourstore.com/emails/icons/facebook.png" alt="Facebook" />
+      </a>
+      <a href="%%=RedirectTo("https://twitter.com/yourbrand")=%%" alias="Twitter">
+        <img src="https://cdn.yourstore.com/emails/icons/twitter.png" alt="Twitter" />
+      </a>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      <p>You're receiving this because you recently signed up at yourstore.com<br/>
+      <a href="%%subscription_center_url%%">Manage Preferences</a> &nbsp;|&nbsp;
+      <a href="%%unsub_center_url%%">Unsubscribe</a></p>
+      <p>%%Member_Busname%% &bull; %%Member_Addr%% &bull; %%Member_City%%, %%Member_State%% %%Member_PostalCode%%</p>
+    </div>
+
+  </div>
+</body>
+</html>

@@ -1,0 +1,151 @@
+%%[
+/**
+ * Re-Engagement / Win-Back Email Template
+ * -----------------------------------------
+ * Multi-step escalating offer sequence for inactive subscribers.
+ * The offer value is determined by how many days since last engagement.
+ *
+ * Required Data Extension: "InactiveSubscribers"
+ * Fields: EmailAddress, FirstName, LastOpenDate, LastClickDate,
+ *         DaysSinceEngagement, WinbackStep, OfferCode, OfferValue
+ *
+ * Journey: Triggered when DaysSinceEngagement >= 60
+ * Steps:   Step 1 (60 days) → Soft re-engage, no offer
+ *          Step 2 (75 days) → 10% off
+ *          Step 3 (90 days) → 20% off
+ *          Step 4 (105 days) → Free shipping
+ *          Step 5 (120 days) → Mystery gift (final attempt)
+ */
+
+SET @email         = emailaddr
+SET @firstName     = ProperCase(Lookup("InactiveSubscribers","FirstName","EmailAddress",@email))
+SET @daysSince     = Lookup("InactiveSubscribers","DaysSinceEngagement","EmailAddress",@email)
+SET @step          = Lookup("InactiveSubscribers","WinbackStep","EmailAddress",@email)
+SET @offerCode     = Lookup("InactiveSubscribers","OfferCode","EmailAddress",@email)
+SET @offerValue    = Lookup("InactiveSubscribers","OfferValue","EmailAddress",@email)
+
+/* Step-specific messaging */
+IF @step == 1 THEN
+  SET @subjectHint = "We miss you"
+  SET @heroTitle   = "Hey %%=v(@firstName)=%%, it's been a while! 👋"
+  SET @heroBody    = "We noticed you haven't visited us in a while and we'd love to have you back. Here's what's new since your last visit."
+  SET @ctaText     = "See What's New"
+  SET @hasOffer    = "false"
+ELSEIF @step == 2 THEN
+  SET @subjectHint = "A little something for you"
+  SET @heroTitle   = "%%=v(@firstName)=%%, we want you back — here's 10% off 🎁"
+  SET @heroBody    = "As a thank you for being a part of our community, we're giving you an exclusive discount. Valid for 7 days only."
+  SET @ctaText     = "Claim 10% Off"
+  SET @hasOffer    = "true"
+ELSEIF @step == 3 THEN
+  SET @subjectHint = "Your offer is waiting"
+  SET @heroTitle   = "%%=v(@firstName)=%%, your 20% off offer expires soon ⏰"
+  SET @heroBody    = "We really don't want to say goodbye! Here's an even bigger discount — just for you."
+  SET @ctaText     = "Claim 20% Off Now"
+  SET @hasOffer    = "true"
+ELSEIF @step == 4 THEN
+  SET @subjectHint = "Free shipping — just for you"
+  SET @heroTitle   = "%%=v(@firstName)=%%, free shipping on your next order 🚚"
+  SET @heroBody    = "We'll cover the shipping costs — no minimum order required. Just use your code at checkout."
+  SET @ctaText     = "Shop Free Shipping"
+  SET @hasOffer    = "true"
+ELSE
+  SET @subjectHint = "Last chance"
+  SET @heroTitle   = "%%=v(@firstName)=%%, this is our final goodbye gift 🎀"
+  SET @heroBody    = "We hate goodbyes. Before we part ways, we have one last mystery gift waiting for you inside. Click to reveal."
+  SET @ctaText     = "Reveal My Gift"
+  SET @hasOffer    = "true"
+ENDIF
+]%%
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>%%=v(@subjectHint)=%%, %%=v(@firstName)=%%</title>
+  <style>
+    body { margin: 0; padding: 0; background: #f5f5f5; font-family: 'Georgia', serif; }
+    .wrapper { max-width: 600px; margin: 0 auto; background: #fff; }
+    .header { background: #2d2d2d; padding: 28px 40px; text-align: center; }
+    .header img { height: 36px; }
+    .hero { padding: 40px 40px 24px; text-align: center; }
+    .hero h2 { font-size: 26px; color: #2d2d2d; margin: 0 0 16px; line-height: 1.3; }
+    .hero p { font-size: 16px; color: #666; margin: 0; line-height: 1.6; }
+    .offer-box { margin: 24px 40px; background: linear-gradient(135deg, #ff6b6b, #ee5a24); border-radius: 12px; padding: 28px; text-align: center; color: #fff; }
+    .offer-box .offer-label { font-size: 14px; letter-spacing: 2px; text-transform: uppercase; opacity: 0.9; }
+    .offer-box .offer-value { font-size: 48px; font-weight: bold; line-height: 1.1; margin: 8px 0; }
+    .offer-box .offer-code-label { font-size: 13px; opacity: 0.85; margin-bottom: 6px; }
+    .offer-box .offer-code { font-size: 22px; font-weight: bold; letter-spacing: 4px; background: rgba(255,255,255,0.2); display: inline-block; padding: 8px 20px; border-radius: 6px; border: 2px dashed rgba(255,255,255,0.7); }
+    .offer-box .offer-expiry { font-size: 12px; opacity: 0.8; margin-top: 10px; }
+    .cta { text-align: center; padding: 24px 40px; }
+    .cta a { background: #2d2d2d; color: #fff; padding: 16px 48px; text-decoration: none; border-radius: 4px; font-size: 16px; font-weight: bold; display: inline-block; letter-spacing: 0.5px; }
+    .divider { border: none; border-top: 1px solid #eee; margin: 0 40px; }
+    .stay-opt { text-align: center; padding: 24px 40px; }
+    .stay-opt p { font-size: 14px; color: #999; margin: 0 0 12px; }
+    .stay-opt a { color: #ee5a24; text-decoration: none; font-weight: bold; }
+    .footer { background: #f9f9f9; padding: 20px 40px; text-align: center; font-size: 12px; color: #bbb; border-top: 1px solid #eee; }
+    .footer a { color: #bbb; text-decoration: underline; }
+    @media only screen and (max-width: 480px) {
+      .hero, .cta, .stay-opt, .offer-box { padding-left: 20px !important; padding-right: 20px !important; }
+      .hero h2 { font-size: 20px; }
+      .offer-box .offer-value { font-size: 36px; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Preheader text (hidden inbox preview) -->
+  <span style="display:none;max-height:0;overflow:hidden;mso-hide:all;font-size:1px;color:#ffffff;line-height:1px;">
+    %%=v(@subjectHint)=%% — %%=v(@heroBody)=%% &zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;&zwnj;&nbsp;
+  </span>
+  <div class="wrapper">
+
+    <!-- Header -->
+    <div class="header">
+      <span style="color:#fff;font-size:22px;font-weight:bold;letter-spacing:2px;">YOUR BRAND</span>
+    </div>
+
+    <!-- Hero -->
+    <div class="hero">
+      <h2>%%=v(@heroTitle)=%%</h2>
+      <p>%%=v(@heroBody)=%%</p>
+    </div>
+
+    <!-- Offer Block (conditional) -->
+    %%[ IF @hasOffer == "true" THEN ]%%
+    <div class="offer-box">
+      <div class="offer-label">Your Exclusive Offer</div>
+      <div class="offer-value">%%=v(@offerValue)=%%</div>
+      <div class="offer-code-label">Use code at checkout:</div>
+      <div class="offer-code">%%=v(@offerCode)=%%</div>
+      <div class="offer-expiry">⏳ Expires in 7 days · One use per customer</div>
+    </div>
+    %%[ ENDIF ]%%
+
+    <!-- CTA -->
+    <div class="cta">
+      <a href="%%=RedirectTo("https://www.yourstore.com/?utm_source=email&utm_medium=winback&utm_campaign=reengagement&utm_content=step%%=v(@step)=%%")=%%" alias="%%=v(@ctaText)=%%">
+        %%=v(@ctaText)=%% →
+      </a>
+    </div>
+
+    <hr class="divider" />
+
+    <!-- Stay or Go Option -->
+    <div class="stay-opt">
+      <p>Not interested in hearing from us anymore?</p>
+      <p>
+        <a href="%%subscription_center_url%%">Update my email preferences</a>
+        &nbsp;&nbsp;or&nbsp;&nbsp;
+        <a href="%%unsub_center_url%%">Unsubscribe</a>
+      </p>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      <p>%%Member_Busname%% &bull; %%Member_Addr%% &bull; %%Member_City%%, %%Member_State%% %%Member_PostalCode%%</p>
+      <p>%%jobid%% &bull; %%listid%% &bull; %%subid%%</p>
+    </div>
+
+  </div>
+</body>
+</html>

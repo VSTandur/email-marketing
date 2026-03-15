@@ -1,0 +1,287 @@
+name: SFMC Email & Journey Build QC
+
+on:
+  push:
+    branches: ["**"]
+    paths:
+      - "templates/email-templates/**"
+      - "journeys/examples/**"
+      - "scripts/qc/**"
+      - "sql/**"
+  pull_request:
+    branches: ["**"]
+    paths:
+      - "templates/email-templates/**"
+      - "journeys/examples/**"
+      - "scripts/qc/**"
+      - "sql/**"
+  workflow_dispatch:
+    inputs:
+      fail_on_warning:
+        description: "Fail pipeline on warnings (in addition to errors)"
+        required: false
+        default: "false"
+        type: choice
+        options: ["true", "false"]
+
+jobs:
+  # ============================================================
+  # JOB 0: QC Rule Unit Tests
+  # ============================================================
+  qc-unit-tests:
+    name: QC Rule Unit Tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install QC dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Run QC rule unit tests
+        run: npm test
+
+  # ============================================================
+  # JOB 1: Email Content QC
+  # ============================================================
+  email-qc:
+    name: Email Content QC
+    runs-on: ubuntu-latest
+    needs: [qc-unit-tests]
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install QC dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Run Email QC
+        id: email_qc
+        run: |
+          ARGS="--json report/email-qc.json"
+          if [ "${{ github.event.inputs.fail_on_warning }}" = "true" ]; then
+            ARGS="$ARGS --fail-on-warning"
+          fi
+          node scripts/qc/email-qc.js $ARGS
+
+      - name: Upload Email QC Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: email-qc-report
+          path: report/email-qc.json
+          retention-days: 30
+
+  # ============================================================
+  # JOB 2: Journey Configuration QC
+  # ============================================================
+  journey-qc:
+    name: Journey Configuration QC
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install QC dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Run Journey QC
+        id: journey_qc
+        run: |
+          ARGS="--json report/journey-qc.json"
+          if [ "${{ github.event.inputs.fail_on_warning }}" = "true" ]; then
+            ARGS="$ARGS --fail-on-warning"
+          fi
+          node scripts/qc/journey-qc.js $ARGS
+
+      - name: Upload Journey QC Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: journey-qc-report
+          path: report/journey-qc.json
+          retention-days: 30
+
+  # ============================================================
+  # JOB 3: Pre-Send Checklist (gates on email + journey QC)
+  # ============================================================
+  pre-send-checklist:
+    name: Pre-Send Checklist
+    runs-on: ubuntu-latest
+    needs: [email-qc, journey-qc]
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install QC dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Run Pre-Send Checklist
+        run: node scripts/qc/pre-send-checklist.js --json report/pre-send.json
+
+      - name: Upload Pre-Send Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pre-send-checklist-report
+          path: report/pre-send.json
+          retention-days: 30
+
+  # ============================================================
+  # JOB 4: SQL Syntax Lint (basic structural check)
+  # ============================================================
+  sql-lint:
+    name: SQL File Lint
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Check SQL files exist and are non-empty
+        run: |
+          echo "Checking SQL files..."
+          FAILED=0
+          for f in $(find sql/ -name "*.sql" 2>/dev/null); do
+            SIZE=$(wc -c < "$f")
+            if [ "$SIZE" -lt 50 ]; then
+              echo "FAIL: $f is suspiciously small ($SIZE bytes)"
+              FAILED=1
+            else
+              echo "OK:   $f ($SIZE bytes)"
+            fi
+          done
+          if [ "$FAILED" -ne 0 ]; then
+            exit 1
+          fi
+          echo "All SQL files passed basic checks."
+
+      - name: Check for common SFMC SQL anti-patterns
+        run: |
+          echo "Checking for SQL anti-patterns..."
+          FAILED=0
+          # SELECT * is a performance risk in Automation Studio (reads all columns from DE)
+          if grep -rn "SELECT \*" sql/ 2>/dev/null; then
+            echo "WARNING: SELECT * detected. Explicitly list columns for performance."
+          fi
+          # Missing WHERE clause on UPDATE/DELETE
+          if grep -Pn "^(UPDATE|DELETE)\s+\[" sql/ 2>/dev/null | grep -v "WHERE"; then
+            echo "WARNING: UPDATE or DELETE without WHERE clause detected."
+          fi
+          echo "SQL anti-pattern check complete."
+
+  # ============================================================
+  # JOB 5: Journey Schema Validation
+  # ============================================================
+  journey-schema:
+    name: Journey JSON Schema Validation
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Validate journey JSON files against schema
+        run: |
+          node -e "
+          const fs   = require('fs');
+          const path = require('path');
+          let Ajv;
+          try { Ajv = require('ajv'); } catch(e) { console.log('Ajv not available, skipping schema validation'); process.exit(0); }
+          const ajv    = new (Ajv.default || Ajv)({ allErrors: true, strict: false });
+          const schema = JSON.parse(fs.readFileSync('journeys/schemas/journey-schema.json', 'utf8'));
+          const validate = ajv.compile(schema);
+          let failed = 0;
+          const dir = 'journeys/examples';
+          if (!fs.existsSync(dir)) { console.log('No journey examples directory.'); process.exit(0); }
+          fs.readdirSync(dir).filter(f => f.endsWith('.json')).forEach(f => {
+            const obj = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8'));
+            const valid = validate(obj);
+            if (!valid) {
+              console.error('FAIL:', f);
+              validate.errors.forEach(e => console.error(' -', e.instancePath, e.message));
+              failed++;
+            } else {
+              console.log('PASS:', f);
+            }
+          });
+          if (failed > 0) process.exit(1);
+          "
+
+  # ============================================================
+  # JOB 6: Consolidated QC Status Badge
+  # ============================================================
+  qc-status:
+    name: QC Gate — All Checks
+    runs-on: ubuntu-latest
+    needs: [qc-unit-tests, email-qc, journey-qc, pre-send-checklist, sql-lint, journey-schema]
+    if: always()
+    permissions: {}
+    steps:
+      - name: Evaluate all QC results
+        run: |
+          echo "Job results:"
+          echo "  qc-unit-tests:      ${{ needs.qc-unit-tests.result }}"
+          echo "  email-qc:           ${{ needs.email-qc.result }}"
+          echo "  journey-qc:         ${{ needs.journey-qc.result }}"
+          echo "  pre-send-checklist: ${{ needs.pre-send-checklist.result }}"
+          echo "  sql-lint:           ${{ needs.sql-lint.result }}"
+          echo "  journey-schema:     ${{ needs.journey-schema.result }}"
+
+          if [ "${{ needs.qc-unit-tests.result }}"          = "failure" ] || \
+             [ "${{ needs.email-qc.result }}"               = "failure" ] || \
+             [ "${{ needs.journey-qc.result }}"             = "failure" ] || \
+             [ "${{ needs.pre-send-checklist.result }}"     = "failure" ] || \
+             [ "${{ needs.sql-lint.result }}"               = "failure" ] || \
+             [ "${{ needs.journey-schema.result }}"         = "failure" ]; then
+            echo ""
+            echo "✖ QC GATE FAILED — one or more checks did not pass."
+            echo "  Review the job logs and uploaded QC report artifacts above."
+            exit 1
+          fi
+
+          echo ""
+          echo "✔ All QC checks passed. Safe to proceed with deployment."

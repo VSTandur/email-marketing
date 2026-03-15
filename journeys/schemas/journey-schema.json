@@ -1,0 +1,183 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "sfmc-journey-schema",
+  "title": "SFMC Journey Builder Configuration Schema",
+  "description": "Validates journey configurations exported from or prepared for the SFMC Journey Builder REST API",
+  "type": "object",
+  "required": ["name", "key", "status", "entryMode", "triggers", "activities"],
+  "additionalProperties": true,
+  "properties": {
+    "name": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 128,
+      "description": "Human-readable journey name"
+    },
+    "key": {
+      "type": "string",
+      "pattern": "^[a-zA-Z0-9_-]+$",
+      "description": "Unique journey key identifier (alphanumeric, hyphens, underscores)"
+    },
+    "description": {
+      "type": "string",
+      "maxLength": 512
+    },
+    "status": {
+      "type": "string",
+      "enum": ["Draft", "Published", "Stopped", "Unpublished"],
+      "description": "Journey lifecycle status"
+    },
+    "entryMode": {
+      "type": "string",
+      "enum": ["SingleEntrance", "MultipleEntrances", "NoReEntry"],
+      "description": "Controls whether contacts can re-enter the journey"
+    },
+    "definitionType": {
+      "type": "string",
+      "enum": ["Multistep", "Quicksend", "Transactional"],
+      "default": "Multistep"
+    },
+    "triggers": {
+      "type": "array",
+      "minItems": 1,
+      "description": "At least one entry trigger is required",
+      "items": {
+        "type": "object",
+        "required": ["key", "type"],
+        "properties": {
+          "key": { "type": "string", "minLength": 1 },
+          "type": {
+            "type": "string",
+            "enum": [
+              "EmailAudience",
+              "APIEvent",
+              "ContactAudience",
+              "SFObjectTrigger",
+              "DateTrigger",
+              "EventTrigger"
+            ]
+          },
+          "name": { "type": "string" },
+          "description": { "type": "string" },
+          "metaData": { "type": "object" },
+          "dataExtensionId": { "type": "string" },
+          "filterDefinitionId": { "type": "string" },
+          "schedule": {
+            "type": "object",
+            "properties": {
+              "startDate": { "type": "string", "description": "ISO 8601 start date-time, e.g. 2025-01-01T00:00:00Z" },
+              "endDate": { "type": "string", "description": "ISO 8601 end date-time, e.g. 2026-12-31T23:59:59Z" },
+              "timezone": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "activities": {
+      "type": "array",
+      "minItems": 1,
+      "description": "Journey must have at least one activity",
+      "items": {
+        "type": "object",
+        "required": ["key", "name", "type"],
+        "properties": {
+          "key": { "type": "string", "minLength": 1 },
+          "name": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "EMAILV2",
+              "SMSSYNC",
+              "WAIT",
+              "MULTICRITERIADECISION",
+              "ENGAGEMENTSPLIT",
+              "RANDOMSPLIT",
+              "SCORE",
+              "DATAUPDATE",
+              "JOURNEY",
+              "REST",
+              "PUSHNOTIFICATION",
+              "LINEARMESSAGESEND",
+              "GOAL",
+              "EXIT"
+            ]
+          },
+          "description": { "type": "string" },
+          "outcomes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["key", "next"],
+              "properties": {
+                "key": { "type": "string" },
+                "next": { "type": "string" },
+                "label": { "type": "string" },
+                "metaData": { "type": "object" }
+              }
+            }
+          },
+          "arguments": { "type": "object" },
+          "configurationArguments": { "type": "object" },
+          "metaData": { "type": "object" }
+        }
+      }
+    },
+    "goals": {
+      "type": "array",
+      "description": "Optional journey success goal definitions",
+      "items": {
+        "type": "object",
+        "required": ["key", "name", "type"],
+        "properties": {
+          "key": { "type": "string" },
+          "name": { "type": "string" },
+          "type": { "type": "string", "enum": ["ContactMeetsCriteria", "EventOccurred"] },
+          "description": { "type": "string" },
+          "metaData": { "type": "object" }
+        }
+      }
+    },
+    "exits": {
+      "type": "array",
+      "description": "Optional journey exit criteria",
+      "items": {
+        "type": "object",
+        "properties": {
+          "key": { "type": "string" },
+          "name": { "type": "string" },
+          "type": { "type": "string" },
+          "metaData": { "type": "object" }
+        }
+      }
+    },
+    "notifiers": {
+      "type": "array",
+      "description": "Alert notifiers for journey errors or completions",
+      "items": {
+        "type": "object",
+        "properties": {
+          "key": { "type": "string" },
+          "name": { "type": "string" },
+          "type": { "type": "string" }
+        }
+      }
+    },
+    "tags": {
+      "type": "array",
+      "description": "Metadata tags for journey organisation",
+      "items": { "type": "string" }
+    },
+    "category": {
+      "type": "object",
+      "description": "Journey folder/category assignment",
+      "properties": {
+        "id": { "type": "integer" },
+        "name": { "type": "string" }
+      }
+    }
+  }
+}

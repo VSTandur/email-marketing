@@ -1,0 +1,295 @@
+%%[
+/**
+ * AMPscript Snippets Library
+ * ==========================
+ * A curated collection of reusable AMPscript snippets for SFMC.
+ * Copy individual sections into your emails as needed.
+ *
+ * Contents:
+ *   1.  Safe subscriber name lookup with fallback
+ *   2.  Date/time personalisation (greeting by time of day)
+ *   3.  LOOKUP with null-safety
+ *   4.  Inline image rendering by gender/segment
+ *   5.  Product recommendations (up to N items from DE)
+ *   6.  Conditional content blocks by audience attribute
+ *   7.  Coupon code display with expiry countdown
+ *   8.  Dynamic unsubscribe footer (region-aware: GDPR / CCPA)
+ *   9.  AMPscript-powered redirect with UTM builder
+ *   10. Engagement score badge renderer
+ *   11. Multi-language subject line personalisation
+ *   12. CloudPages URL with encrypted subscriber key
+ */
+
+
+/* ============================================================
+   1. SAFE SUBSCRIBER NAME LOOKUP WITH FALLBACK
+   ============================================================ */
+%%[
+SET @rawFirst   = Lookup("AllSubscribers","FirstName","EmailAddress",emailaddr)
+SET @firstName  = IIF(EMPTY(@rawFirst), "Valued Customer", ProperCase(@rawFirst))
+SET @rawLast    = Lookup("AllSubscribers","LastName","EmailAddress",emailaddr)
+SET @lastName   = IIF(EMPTY(@rawLast), "", ProperCase(@rawLast))
+SET @fullName   = Trim(Concat(@firstName," ",@lastName))
+]%%
+<!-- Usage: Hello %%=v(@firstName)=%%, -->
+
+
+/* ============================================================
+   2. GREETING BY TIME OF DAY (subscriber's local timezone)
+   ============================================================ */
+%%[
+SET @subTZ      = Lookup("AllSubscribers","TimeZone","EmailAddress",emailaddr)
+SET @localHour  = DatePart(SystemDateToLocalDate(Now()), "H")
+IF @localHour >= 5 AND @localHour < 12 THEN
+  SET @greeting = "Good morning"
+ELSEIF @localHour >= 12 AND @localHour < 17 THEN
+  SET @greeting = "Good afternoon"
+ELSEIF @localHour >= 17 AND @localHour < 21 THEN
+  SET @greeting = "Good evening"
+ELSE
+  SET @greeting = "Hey"
+ENDIF
+]%%
+<!-- Usage: %%=v(@greeting)=%%, %%=v(@firstName)=%% -->
+
+
+/* ============================================================
+   3. LOOKUP WITH NULL-SAFETY AND DEFAULT
+   ============================================================ */
+%%[
+/* Pattern: always provide a default to avoid blank renders */
+SET @city       = Lookup("Subscribers","City","EmailAddress",emailaddr)
+SET @cityDisplay = IIF(EMPTY(@city), "your area", ProperCase(@city))
+
+SET @loyaltyTier = Lookup("LoyaltyMembers","TierName","EmailAddress",emailaddr)
+SET @tierDisplay = IIF(EMPTY(@loyaltyTier), "Standard", @loyaltyTier)
+]%%
+
+
+/* ============================================================
+   4. INLINE DYNAMIC IMAGE BY SEGMENT
+   ============================================================ */
+%%[
+SET @gender     = Lookup("Subscribers","Gender","EmailAddress",emailaddr)
+SET @segment    = Lookup("Subscribers","Segment","EmailAddress",emailaddr)
+
+IF @gender == "F" THEN
+  SET @heroImg  = "https://cdn.example.com/hero-female.jpg"
+ELSEIF @gender == "M" THEN
+  SET @heroImg  = "https://cdn.example.com/hero-male.jpg"
+ELSE
+  SET @heroImg  = "https://cdn.example.com/hero-neutral.jpg"
+ENDIF
+
+/* Segment-based banner override */
+IF @segment == "VIP" THEN
+  SET @heroImg  = "https://cdn.example.com/hero-vip.jpg"
+ENDIF
+]%%
+<!-- Usage: <img src="%%=v(@heroImg)=%%" alt="Hero Image" /> -->
+
+
+/* ============================================================
+   5. PRODUCT RECOMMENDATIONS (up to 3 items from DE row set)
+   ============================================================ */
+%%[
+SET @recRows    = LookupRows("ProductRecommendations","EmailAddress",emailaddr)
+SET @recCount   = RowCount(@recRows)
+SET @showMax    = IIF(@recCount > 3, 3, @recCount)
+
+FOR @i = 1 TO @showMax DO
+  SET @recRow   = Row(@recRows,@i)
+  SET @pName    = Field(@recRow,"ProductName")
+  SET @pImg     = Field(@recRow,"ProductImageURL")
+  SET @pURL     = Field(@recRow,"ProductURL")
+  SET @pPrice   = Field(@recRow,"ProductPrice")
+  SET @pBadge   = Field(@recRow,"Badge")  /* e.g., "Best Seller", "New", "Sale" */
+]%%
+  <div class="product-card">
+    %%[ IF NOT EMPTY(@pBadge) THEN ]%%
+    <span class="badge">%%=v(@pBadge)=%%</span>
+    %%[ ENDIF ]%%
+    <a href="%%=RedirectTo(v(@pURL))=%%" alias="%%=v(@pName)=%%">
+      <img src="%%=v(@pImg)=%%" alt="%%=v(@pName)=%%" />
+    </a>
+    <p class="name">%%=v(@pName)=%%</p>
+    <p class="price">$%%=v(@pPrice)=%%</p>
+  </div>
+%%[ NEXT @i ]%%
+
+
+/* ============================================================
+   6. CONDITIONAL CONTENT BY AUDIENCE ATTRIBUTE
+   ============================================================ */
+%%[
+SET @hasKids    = Lookup("Subscribers","HasChildren","EmailAddress",emailaddr)
+SET @petOwner   = Lookup("Subscribers","PetOwner","EmailAddress",emailaddr)
+SET @memberSince = DatePart(Lookup("Subscribers","JoinDate","EmailAddress",emailaddr),"Y")
+SET @currentYear = DatePart(Now(),"Y")
+SET @yearsWithUs = Subtract(@currentYear,@memberSince)
+]%%
+%%[ IF @hasKids == "Y" THEN ]%%
+  <!-- Show family/kids content block -->
+%%[ ELSEIF @petOwner == "Y" THEN ]%%
+  <!-- Show pet-friendly content block -->
+%%[ ELSE ]%%
+  <!-- Default content block -->
+%%[ ENDIF ]%%
+
+%%[ IF @yearsWithUs >= 3 THEN ]%%
+  <p>Thank you for being with us for %%=v(@yearsWithUs)=%% years! 🎂</p>
+%%[ ENDIF ]%%
+
+
+/* ============================================================
+   7. COUPON CODE WITH COUNTDOWN DAYS
+   ============================================================ */
+%%[
+SET @couponCode = Lookup("Coupons","Code","EmailAddress",emailaddr)
+SET @expiryDate = Lookup("Coupons","ExpiryDate","EmailAddress",emailaddr)
+SET @daysLeft   = DateDiff(Now(),@expiryDate,"D")
+
+IF @daysLeft <= 0 THEN
+  SET @urgency  = "⚠️ This offer has expired."
+  SET @showCoupon = "false"
+ELSEIF @daysLeft == 1 THEN
+  SET @urgency  = "⏰ Last day to use your code!"
+  SET @showCoupon = "true"
+ELSEIF @daysLeft <= 3 THEN
+  SET @urgency  = Concat("🔥 Only ",@daysLeft," days left to redeem!")
+  SET @showCoupon = "true"
+ELSE
+  SET @urgency  = Concat("Valid for ",@daysLeft," more days.")
+  SET @showCoupon = "true"
+ENDIF
+]%%
+%%[ IF @showCoupon == "true" THEN ]%%
+  <div class="coupon">
+    <p>%%=v(@urgency)=%%</p>
+    <p class="code">%%=v(@couponCode)=%%</p>
+  </div>
+%%[ ELSE ]%%
+  <div class="coupon-expired">
+    <p>%%=v(@urgency)=%%</p>
+  </div>
+%%[ ENDIF ]%%
+
+
+/* ============================================================
+   8. DYNAMIC UNSUBSCRIBE FOOTER (GDPR / CCPA / Standard)
+   ============================================================ */
+%%[
+SET @subCountry = Lookup("Subscribers","Country","EmailAddress",emailaddr)
+SET @subState   = Lookup("Subscribers","State","EmailAddress",emailaddr)
+
+IF @subCountry == "DE" OR @subCountry == "FR" OR @subCountry == "GB" OR @subCountry == "NL" THEN
+  SET @footerType = "GDPR"
+ELSEIF @subCountry == "US" AND @subState == "CA" THEN
+  SET @footerType = "CCPA"
+ELSE
+  SET @footerType = "Standard"
+ENDIF
+]%%
+
+%%[ IF @footerType == "GDPR" THEN ]%%
+<p style="font-size:11px;color:#999;">
+  Under GDPR, you have the right to access, rectify, and erase your personal data.
+  <a href="%%subscription_center_url%%">Manage your data preferences</a> |
+  <a href="%%unsub_center_url%%">Unsubscribe</a>
+</p>
+%%[ ELSEIF @footerType == "CCPA" THEN ]%%
+<p style="font-size:11px;color:#999;">
+  California residents: <a href="https://www.yourstore.com/do-not-sell">Do Not Sell My Personal Information</a> |
+  <a href="%%unsub_center_url%%">Unsubscribe</a>
+</p>
+%%[ ELSE ]%%
+<p style="font-size:11px;color:#999;">
+  <a href="%%subscription_center_url%%">Manage Preferences</a> |
+  <a href="%%unsub_center_url%%">Unsubscribe</a>
+</p>
+%%[ ENDIF ]%%
+
+
+/* ============================================================
+   9. AMPSCRIPT-POWERED REDIRECT WITH UTM BUILDER
+   ============================================================ */
+%%[
+SET @baseURL      = "https://www.yourstore.com/category/shoes"
+SET @utmSource    = "email"
+SET @utmMedium    = "promotional"
+SET @utmCampaign  = "spring-sale-2025"
+SET @utmContent   = Concat("hero-cta-",@tierDisplay)
+
+SET @trackedURL   = Concat(
+  @baseURL,
+  "?utm_source=", @utmSource,
+  "&utm_medium=", @utmMedium,
+  "&utm_campaign=", @utmCampaign,
+  "&utm_content=", @utmContent,
+  "&subscriber_id=%%_subscriberkey%%"
+)
+]%%
+<a href="%%=RedirectTo(v(@trackedURL))=%%" alias="Shop Spring Sale">Shop Now</a>
+
+
+/* ============================================================
+   10. ENGAGEMENT SCORE BADGE RENDERER
+   ============================================================ */
+%%[
+SET @engScore   = Lookup("EngagementScores","Score","EmailAddress",emailaddr)
+SET @engScore   = IIF(EMPTY(@engScore), 0, @engScore)
+
+IF @engScore >= 80 THEN
+  SET @engLabel   = "Superfan 🌟"
+  SET @engColor   = "#4caf50"
+ELSEIF @engScore >= 50 THEN
+  SET @engLabel   = "Active 👍"
+  SET @engColor   = "#2196f3"
+ELSEIF @engScore >= 20 THEN
+  SET @engLabel   = "Warming Up 🔥"
+  SET @engColor   = "#ff9800"
+ELSE
+  SET @engLabel   = "At Risk ⚠️"
+  SET @engColor   = "#f44336"
+ENDIF
+]%%
+<!-- Badge: <span style="background:%%=v(@engColor)=%%;color:#fff;padding:4px 10px;border-radius:12px;font-size:12px;">%%=v(@engLabel)=%%</span> -->
+
+
+/* ============================================================
+   11. MULTI-LANGUAGE PERSONALISATION
+   ============================================================ */
+%%[
+SET @subLang    = Lookup("Subscribers","Language","EmailAddress",emailaddr)
+
+IF @subLang == "es" THEN
+  SET @helloMsg   = Concat("Hola, ", @firstName, "!")
+  SET @ctaLabel   = "Comprar ahora"
+ELSEIF @subLang == "fr" THEN
+  SET @helloMsg   = Concat("Bonjour, ", @firstName, "!")
+  SET @ctaLabel   = "Acheter maintenant"
+ELSEIF @subLang == "de" THEN
+  SET @helloMsg   = Concat("Hallo, ", @firstName, "!")
+  SET @ctaLabel   = "Jetzt kaufen"
+ELSEIF @subLang == "pt" THEN
+  SET @helloMsg   = Concat("Olá, ", @firstName, "!")
+  SET @ctaLabel   = "Compre agora"
+ELSE
+  SET @helloMsg   = Concat("Hello, ", @firstName, "!")
+  SET @ctaLabel   = "Shop Now"
+ENDIF
+]%%
+<!-- Usage: <h2>%%=v(@helloMsg)=%%</h2> -->
+<!-- CTA:   <a href="...">%%=v(@ctaLabel)=%%</a> -->
+
+
+/* ============================================================
+   12. CLOUDPAGES URL WITH ENCRYPTED SUBSCRIBER KEY
+   ============================================================ */
+%%[
+/* Encrypt subscriber key for secure CloudPage parameter passing */
+SET @encryptedKey   = EncryptSymmetric("%%_subscriberkey%%","AES","KEY_FIELD","","IV_FIELD","")
+SET @landingPageID  = 123456  /* Replace with your CloudPage ID */
+SET @preferencesURL = CloudPagesURL(@landingPageID, "sk", @encryptedKey, "email", emailaddr)
+]%%
+<a href="%%=v(@preferencesURL)=%%" alias="Update Preferences">Update My Preferences</a>

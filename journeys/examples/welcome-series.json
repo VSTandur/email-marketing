@@ -1,0 +1,246 @@
+{
+  "name": "Welcome Series Journey",
+  "key": "welcome-series-v1",
+  "description": "5-step onboarding journey triggered when a new subscriber opts in. Sends a welcome email immediately, then nurtures with a category-specific content series over 14 days before exiting to the main newsletter audience.",
+  "status": "Draft",
+  "entryMode": "SingleEntrance",
+  "definitionType": "Multistep",
+  "tags": ["onboarding", "welcome", "lifecycle", "q1-2025"],
+  "category": {
+    "id": 1001,
+    "name": "Lifecycle Journeys"
+  },
+  "triggers": [
+    {
+      "key": "welcome-trigger-entry",
+      "type": "ContactAudience",
+      "name": "New Subscriber Entry",
+      "description": "Fires when a contact is added to the WelcomeSubscribers Data Extension by the nightly SQL automation.",
+      "metaData": {
+        "entryActivityKey": "email-welcome-day0"
+      },
+      "dataExtensionId": "DE_WELCOME_SUBSCRIBERS_ID",
+      "schedule": {
+        "startDate": "2025-01-01T00:00:00Z",
+        "endDate": "2026-12-31T23:59:59Z",
+        "timezone": "America/New_York"
+      }
+    }
+  ],
+  "activities": [
+    {
+      "key": "email-welcome-day0",
+      "name": "Send Welcome Email – Day 0",
+      "type": "EMAILV2",
+      "description": "Immediate welcome email with onboarding checklist and 15% welcome offer code.",
+      "outcomes": [
+        { "key": "outcome-after-welcome", "next": "wait-3-days", "label": "Sent" }
+      ],
+      "configurationArguments": {
+        "triggeredSend": {
+          "emailId": "EMAIL_WELCOME_SERIES_ID",
+          "emailSubject": "Welcome, %%=v(@firstName)=%%! 🎉 Here's your 15% off",
+          "preHeaderText": "Your exclusive welcome offer + onboarding checklist inside",
+          "fromName": "Your Brand",
+          "fromEmail": "hello@yourbrand.com",
+          "suppressionListIds": ["SUPPRESSION_DE_ID"]
+        }
+      }
+    },
+    {
+      "key": "wait-3-days",
+      "name": "Wait 3 Days",
+      "type": "WAIT",
+      "description": "Wait 3 days after the welcome email before sending the category intro.",
+      "outcomes": [
+        { "key": "outcome-after-wait1", "next": "split-opened-welcome", "label": "Wait Complete" }
+      ],
+      "configurationArguments": {
+        "waitDuration": 3,
+        "waitUnit": "DAYS"
+      }
+    },
+    {
+      "key": "split-opened-welcome",
+      "name": "Engagement Split – Opened Welcome?",
+      "type": "ENGAGEMENTSPLIT",
+      "description": "Branch subscribers based on whether they opened the Day 0 welcome email.",
+      "outcomes": [
+        { "key": "outcome-engaged", "next": "email-category-intro-day3",    "label": "Opened / Clicked" },
+        { "key": "outcome-not-engaged", "next": "email-nudge-day3",          "label": "Did Not Open" }
+      ],
+      "configurationArguments": {
+        "engagementActivityKey": "email-welcome-day0",
+        "engagementType": "Open"
+      }
+    },
+    {
+      "key": "email-category-intro-day3",
+      "name": "Send Category Intro Email – Day 3",
+      "type": "EMAILV2",
+      "description": "Sends a category-specific curated content email to subscribers who opened the welcome.",
+      "outcomes": [
+        { "key": "outcome-after-cat-intro", "next": "wait-4-days-cat", "label": "Sent" }
+      ],
+      "configurationArguments": {
+        "triggeredSend": {
+          "emailId": "EMAIL_CATEGORY_INTRO_ID",
+          "emailSubject": "%%=v(@firstName)=%%, here are your top %%=v(@category)=%% picks",
+          "preHeaderText": "Curated just for you based on your interests",
+          "fromName": "Your Brand",
+          "fromEmail": "hello@yourbrand.com",
+          "suppressionListIds": ["SUPPRESSION_DE_ID"]
+        }
+      }
+    },
+    {
+      "key": "email-nudge-day3",
+      "name": "Send Re-Open Nudge Email – Day 3",
+      "type": "EMAILV2",
+      "description": "Gentle re-send nudge for subscribers who did not open the welcome email. Uses a different subject line.",
+      "outcomes": [
+        { "key": "outcome-after-nudge", "next": "wait-4-days-nudge", "label": "Sent" }
+      ],
+      "configurationArguments": {
+        "triggeredSend": {
+          "emailId": "EMAIL_WELCOME_NUDGE_ID",
+          "emailSubject": "Did you see this, %%=v(@firstName)=%%? Your 15% off is waiting",
+          "preHeaderText": "We saved your welcome offer — it expires in 27 days",
+          "fromName": "Your Brand",
+          "fromEmail": "hello@yourbrand.com",
+          "suppressionListIds": ["SUPPRESSION_DE_ID"]
+        }
+      }
+    },
+    {
+      "key": "wait-4-days-cat",
+      "name": "Wait 4 Days (Engaged Path)",
+      "type": "WAIT",
+      "description": "Wait 4 days before sending the social proof / best-seller email.",
+      "outcomes": [
+        { "key": "outcome-wait-cat", "next": "email-social-proof-day7", "label": "Wait Complete" }
+      ],
+      "configurationArguments": {
+        "waitDuration": 4,
+        "waitUnit": "DAYS"
+      }
+    },
+    {
+      "key": "wait-4-days-nudge",
+      "name": "Wait 4 Days (Nudge Path)",
+      "type": "WAIT",
+      "description": "Wait 4 days after nudge before sending the final offer reminder.",
+      "outcomes": [
+        { "key": "outcome-wait-nudge", "next": "email-social-proof-day7", "label": "Wait Complete" }
+      ],
+      "configurationArguments": {
+        "waitDuration": 4,
+        "waitUnit": "DAYS"
+      }
+    },
+    {
+      "key": "email-social-proof-day7",
+      "name": "Send Best Sellers Email – Day 7",
+      "type": "EMAILV2",
+      "description": "Best-seller / social proof email at the 7-day mark to all welcome series subscribers.",
+      "outcomes": [
+        { "key": "outcome-after-bestsellers", "next": "wait-7-days-final", "label": "Sent" }
+      ],
+      "configurationArguments": {
+        "triggeredSend": {
+          "emailId": "EMAIL_BEST_SELLERS_ID",
+          "emailSubject": "%%=v(@firstName)=%%, see what everyone's loving right now 🔥",
+          "preHeaderText": "Your personalised top picks + trending this week",
+          "fromName": "Your Brand",
+          "fromEmail": "hello@yourbrand.com",
+          "suppressionListIds": ["SUPPRESSION_DE_ID"]
+        }
+      }
+    },
+    {
+      "key": "wait-7-days-final",
+      "name": "Wait 7 Days Before Final Welcome Email",
+      "type": "WAIT",
+      "description": "Wait 7 more days before the final welcome series email at day 14.",
+      "outcomes": [
+        { "key": "outcome-before-final", "next": "email-final-day14", "label": "Wait Complete" }
+      ],
+      "configurationArguments": {
+        "waitDuration": 7,
+        "waitUnit": "DAYS"
+      }
+    },
+    {
+      "key": "email-final-day14",
+      "name": "Send Final Welcome Series Email – Day 14",
+      "type": "EMAILV2",
+      "description": "Loyalty program invitation and offer expiry reminder at the end of the welcome series.",
+      "outcomes": [
+        { "key": "outcome-final-sent", "next": "update-contact-graduated", "label": "Sent" }
+      ],
+      "configurationArguments": {
+        "triggeredSend": {
+          "emailId": "EMAIL_WELCOME_FINAL_ID",
+          "emailSubject": "Last chance %%=v(@firstName)=%% — your welcome offer expires in 48h ⏰",
+          "preHeaderText": "Plus: join our loyalty program and start earning points today",
+          "fromName": "Your Brand",
+          "fromEmail": "hello@yourbrand.com",
+          "suppressionListIds": ["SUPPRESSION_DE_ID"]
+        }
+      }
+    },
+    {
+      "key": "update-contact-graduated",
+      "name": "Update Contact – Mark Welcome Series Complete",
+      "type": "DATAUPDATE",
+      "description": "Sets WelcomeSeriesComplete=Y on the contact record so they move to the main newsletter audience.",
+      "outcomes": [
+        { "key": "outcome-updated", "next": "exit-welcome-series", "label": "Updated" }
+      ],
+      "configurationArguments": {
+        "dataExtensionId": "DE_WELCOME_SUBSCRIBERS_ID",
+        "operations": [
+          { "field": "WelcomeSeriesComplete", "value": "Y", "type": "UpdateField" }
+        ]
+      }
+    },
+    {
+      "key": "exit-welcome-series",
+      "name": "Exit – Welcome Series Complete",
+      "type": "EXIT",
+      "description": "Contact exits the journey and is now eligible for standard newsletter and promotional sends."
+    }
+  ],
+  "goals": [
+    {
+      "key": "goal-first-purchase",
+      "name": "First Purchase Within 30 Days",
+      "type": "ContactMeetsCriteria",
+      "description": "Subscriber makes their first purchase within 30 days of joining — the primary conversion goal of this journey.",
+      "metaData": {
+        "criteriaDescription": "HasMadeFirstPurchase = Y AND DaysSinceJoin <= 30"
+      }
+    }
+  ],
+  "exits": [
+    {
+      "key": "exit-unsubscribed",
+      "name": "Exit if Unsubscribed",
+      "type": "ContactMeetsCriteria",
+      "metaData": {
+        "criteriaDescription": "Subscriber status = Unsubscribed"
+      }
+    }
+  ],
+  "notifiers": [
+    {
+      "key": "notifier-journey-error",
+      "name": "Journey Error Alert",
+      "type": "EmailNotifier",
+      "metaData": {
+        "recipients": ["email-team@yourbrand.com"],
+        "notifyOn": ["JourneyError", "ActivityError"]
+      }
+    }
+  ]
+}
